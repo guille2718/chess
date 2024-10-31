@@ -1,0 +1,24 @@
+# Ignore all bazel-* symlinks.
+/bazel-*
+
+# Ignore Bazel verbose explanations
+--verbose_explanations
+
+/.gdb_history
+
+# Ignore Vim files
+*.swp
+# Ignore QtCreator Project file
+CMakeLists.txt.user
+# Ignore VS Code files
+.vscode/*
+# Ignore generated python artifacts
+*.pyc
+copts/__pycache__/
+
+
+personal_website/exams/node_modules/*
+personal_website/env/*
+
+
+MODULE.bazel.lock

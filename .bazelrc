@@ -1,0 +1,61 @@
+common --enable_bzlmod
+
+build --cxxopt=-std=c++23
+
+# build --cxxopt="-fno-exceptions"
+
+build --cxxopt="-Wno-deprecated-declarations"
+
+build --cxxopt="-DCPPHTTPLIB_OPENSSL_SUPPORT"
+build --cxxopt="-DCPPHTTPLIB_NO_EXCEPTIONS"
+
+build --cxxopt="-fno-omit-frame-pointer"
+build --cxxopt="-Wall"
+build --cxxopt="-Wextra"
+
+# Ignore these
+build --cxxopt="-Wno-redundant-move"
+build --cxxopt="-Wno-conversion"
+build --cxxopt="-Wno-deprecated"
+build --cxxopt="-Wno-double-promotion"
+build --cxxopt="-Wno-extra-semi"
+build --cxxopt="-Wno-packed"
+build --cxxopt="-Wno-padded"
+build --cxxopt="-Wno-sign-compare"
+build --cxxopt="-Wno-float-conversion"
+build --cxxopt="-Wno-float-equal"
+build --cxxopt="-Wno-format-nonliteral"
+build --cxxopt="-Wno-old-style-cast"
+build --cxxopt="-Wno-switch-enum"
+build --cxxopt="-Wno-unreachable-code"
+build --cxxopt="-Wno-unused-macros"
+build --cxxopt="-Wno-zero-as-null-pointer-constant"
+build --cxxopt="-Wno-unused-parameter"
+build --cxxopt="-Wno-deprecated-declarations"
+build --cxxopt="-Wno-sign-conversion"
+build --cxxopt="-Wno-type-limits"
+build --cxxopt="-Wno-missing-field-initializers"
+# Enable these
+build --cxxopt="-Wenum-conversion"
+# Error on these.
+build --cxxopt="-Werror=return-type"
+
+# Optimized debug build options
+build:opt --cxxopt="-O3"
+build:opt -c opt
+
+build:dbg --copt="-O0"
+build:dbg --copt="-g3"
+build:dbg --copt="-ggdb"
+build:dbg --strip=never
+build:dbg -c dbg
+
+test --test_output=all
+
+########################### clang_tidy ###########################
+# Required for bazel_clang_tidy to operate as expected
+build:clang-tidy --aspects @bazel_clang_tidy//clang_tidy:clang_tidy.bzl%clang_tidy_aspect
+build:clang-tidy --output_groups=report
+build:clang-tidy --@bazel_clang_tidy//:clang_tidy_config=//:clang_tidy_config
+build:clang-tidy --experimental_ui_max_stdouterr_bytes=10000000
+########################### clang_tidy ###########################

@@ -1,0 +1,1 @@
+# Blindfold chess training
