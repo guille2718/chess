@@ -1,5 +1,7 @@
 # Ignore all bazel-* symlinks.
 /bazel-*
+/.cache
+/external
 
 # Ignore Bazel verbose explanations
 --verbose_explanations
