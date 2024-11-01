@@ -66,6 +66,11 @@ class ChessBoard {
   auto SetInfo(const std::string& info) -> void;
   auto Info() const -> std::string;
 
+  // Changes the board by:
+  // 1) Rotating 180 degrees the position of all the pieces.
+  // 2) Flipping the color of whose turn it's to play.
+  void Rotate();
+
  private:
 
   std::vector<BoardPiece> white_;

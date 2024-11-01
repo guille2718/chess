@@ -297,4 +297,19 @@ auto ChessBoard::Fen() const -> std::string {
                          to_play);
 }
 
+void ChessBoard::Rotate() {
+  std::swap(white_, black_);
+  white_to_move_ = !white_to_move_;
+
+  for (auto& piece : white_) {
+    piece.position.rank = 9 - piece.position.rank;
+    piece.position.file = 9 - piece.position.file;
+  }
+
+  for (auto& piece : black_) {
+    piece.position.rank = 9 - piece.position.rank;
+    piece.position.file = 9 - piece.position.file;
+  }
+}
+
 }  // namespace chess
