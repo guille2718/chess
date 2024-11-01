@@ -59,11 +59,9 @@ class ChessBoard {
 
   static auto FromFen(std::string_view fen) -> absl::StatusOr<ChessBoard>;
 
-  auto Print() const -> void;
+  auto Print(bool show_info = false) const -> void;
 
-  auto Fen() const -> std::string {
-    return fen_;
-  }
+  auto Fen() const -> std::string;
 
   auto SetInfo(const std::string& info) -> void;
   auto Info() const -> std::string;
@@ -73,16 +71,11 @@ class ChessBoard {
   std::vector<BoardPiece> white_;
   std::vector<BoardPiece> black_;
 
-  std::string fen_;
-
   std::string info_;
 
   bool white_to_move_ = true;
 
 };
-
-// TODO
-auto ToString(const ChessBoard& board) -> std::string;
 
 auto LoadFenFile(const std::filesystem::path& path)
     -> absl::StatusOr<std::vector<ChessBoard>>;

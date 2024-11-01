@@ -1,5 +1,7 @@
 #include "chess_board.h"
 
+#include <optional>
+
 namespace chess {
 
 namespace {
@@ -109,8 +111,6 @@ auto ChessBoard::FromFen(std::string_view fen) -> absl::StatusOr<ChessBoard> {
   }
 
   ChessBoard ret;
-  ret.fen_ = fen;
-
   if (parts.size() >= 2) {
     ret.white_to_move_ = parts[1] == "w";
   }
@@ -194,7 +194,7 @@ auto ChessBoard::Info() const -> std::string {
   return info_;
 }
 
-auto ChessBoard::Print() const -> void {
+auto ChessBoard::Print(bool show_info) const -> void {
   const ChessLanguage language = ChessLanguage::kEnglish;
   std::cout << "White: ";
   for (const auto& piece : white_) {
@@ -213,13 +213,88 @@ auto ChessBoard::Print() const -> void {
     std::cout << "Black to move\n";
   }
 
-  if (!info_.empty()) {
+  if (!info_.empty() && show_info) {
     std::cout << "Info: " << info_ << '\n';
   }
   const std::string analysis_url =
       absl::StrFormat("https://lichess.org/analysis/%s?color=white",
-                      absl::StrJoin(absl::StrSplit(fen_, ' '), "_"));
+                      absl::StrJoin(absl::StrSplit(Fen(), ' '), "_"));
   std::cout << "Analysis: " << analysis_url << '\n';
+}
+
+auto ChessBoard::Fen() const -> std::string {
+  struct FenPiece {
+    PieceType type;
+    bool white;
+  };
+
+  std::vector<std::vector<std::optional<FenPiece>>> full_board;
+  full_board.resize(8);
+  for (auto& rank : full_board) {
+    rank.resize(8);
+  }
+
+  for (const auto& piece : white_) {
+    const int rank = 8 - piece.position.rank;
+    const int file = piece.position.file - 1;
+
+    FenPiece fp;
+    fp.type = piece.type;
+    fp.white = true;
+    full_board[rank][file] = fp;
+  }
+
+  for (const auto& piece : black_) {
+    const int rank = 8 - piece.position.rank;
+    const int file = piece.position.file - 1;
+
+    FenPiece fp;
+    fp.type = piece.type;
+    fp.white = false;
+    full_board[rank][file] = fp;
+  }
+
+  std::vector<std::string> rank_strings;
+  for (const auto& rank : full_board) {
+    std::string rank_str;
+
+    int prev_file = 1;
+    int curr_file = 1;
+    bool was_empty = true;
+    for (const auto& piece : rank) {
+      if (piece.has_value()) {
+        was_empty = false;
+        std::string piece_str = ToString(piece->type, ChessLanguage::kEnglish);
+        if (piece->white) {
+          piece_str = absl::AsciiStrToUpper(piece_str);
+        } else {
+          piece_str = absl::AsciiStrToLower(piece_str);
+        }
+
+        if (prev_file < curr_file) {
+          absl::StrAppend(&rank_str, curr_file - prev_file);
+        }
+        absl::StrAppend(&rank_str, piece_str);
+        ++curr_file;
+        prev_file = curr_file;
+      } else {
+        ++curr_file;
+      }
+    }
+    if (prev_file < curr_file) {
+      absl::StrAppend(&rank_str, curr_file - prev_file);
+    }
+    if (was_empty) {
+      rank_str = "8";
+    }
+
+    rank_strings.push_back(rank_str);
+  }
+
+  const std::string to_play = white_to_move_ ? "w" : "b";
+
+  return absl::StrFormat("%s %s - - 0 1", absl::StrJoin(rank_strings, "/"),
+                         to_play);
 }
 
 }  // namespace chess
