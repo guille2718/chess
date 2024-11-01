@@ -21,10 +21,16 @@ auto main() -> int {
   absl::BitGen gen;
 
   while (true) {
-    int pos = absl::Uniform(gen, 0U, problems.size());
-    const auto& problem = problems[pos];
-
-    problem.Print();
+    const int pos = absl::Uniform(gen, 0U, problems.size());
+    const bool rotate = absl::Bernoulli(gen, 0.5);
+    auto problem = problems[pos];
+    if (rotate) {
+      problem.Rotate();
+      auto info = problem.Info();
+      absl::StrAppend(&info, " (Rotated)");
+      problem.SetInfo(info);
+    }
+    problem.Print(/* show_info = */ true);
     std::cout
         << "-----------------------------------------------------------\n";
     getchar();
