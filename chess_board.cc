@@ -1,5 +1,7 @@
 #include "chess_board.h"
 
+#include <array>
+#include <fstream>
 #include <optional>
 
 namespace chess {
@@ -17,7 +19,45 @@ auto LoadFile(const std::filesystem::path& path) -> std::string {
   return buffer.str();
 }
 
+auto PieceListString(const std::vector<BoardPiece>& pieces,
+                     const PieceType type,
+                     ChessLanguage language) -> std::string {
+  std::vector<std::string> piece_strings;
+  for (const auto& piece : pieces) {
+    if (piece.type != type) {
+      continue;
+    }
+    piece_strings.push_back(ToString(piece, language));
+  }
+
+  return absl::StrJoin(piece_strings, ", ");
+}
+
 }  // namespace
+
+auto BoardPosition::FromString(std::string_view str)
+    -> absl::StatusOr<BoardPosition> {
+  BoardPosition ret;
+
+  if (str.size() != 2) {
+    return absl::InvalidArgumentError(
+        "Position must consist of exactly two chacaters.");
+  }
+
+  ret.file = 1 + str[0] - 'a';
+  ret.rank = str[1] - '0';
+
+  if (!ret.IsValid()) {
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Invalid position string '%s'", str));
+  }
+
+  return ret;
+}
+
+auto ToString(Color color) -> std::string {
+  return color == Color::White ? "white" : "black";
+}
 
 auto FromFenPiece(char c) -> absl::StatusOr<PieceType> {
   c = absl::ascii_tolower(c);
@@ -80,6 +120,23 @@ auto ToString(PieceType type, ChessLanguage language) -> std::string {
       default:
         return "";
     }
+  } else if (language == ChessLanguage::kSpanish) {
+    switch (type) {
+      case PieceType::Rook:
+        return "T";
+      case PieceType::Knight:
+        return "C";
+      case PieceType::Bishop:
+        return "A";
+      case PieceType::Queen:
+        return "D";
+      case PieceType::King:
+        return "R";
+      case PieceType::Pawn:
+        return "P";
+      default:
+        return "";
+    }
   }
 
   return "";
@@ -94,11 +151,6 @@ auto ToString(const BoardPosition& position) -> std::string {
 
 auto ToString(const BoardPiece& piece, ChessLanguage language) -> std::string {
   return absl::StrCat(ToString(piece.type, language), ToString(piece.position));
-}
-
-auto ToString(const ChessBoard& board) -> std::string {
-  std::string ret;
-  return ret;
 }
 
 // https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation
@@ -186,27 +238,32 @@ auto LoadFenFile(const std::filesystem::path& path)
   return ret;
 }
 
-auto ChessBoard::SetInfo(const std::string& info) -> void {
-  info_ = info;
-}
+auto ChessBoard::SetInfo(const std::string& info) -> void { info_ = info; }
 
-auto ChessBoard::Info() const -> std::string {
-  return info_;
-}
+auto ChessBoard::Info() const -> std::string { return info_; }
 
-auto ChessBoard::Print(bool show_info) const -> void {
-  const ChessLanguage language = ChessLanguage::kEnglish;
-  std::cout << "White: ";
-  for (const auto& piece : white_) {
-    std::cout << ToString(piece, language) << ", ";
+auto ChessBoard::Print(bool show_info, ChessLanguage language) const -> void {
+  std::cout << "FEN: " << Fen() << '\n';
+  constexpr auto kPieceTypes = std::array{
+      PieceType::King,   PieceType::Queen,  PieceType::Rook,
+      PieceType::Bishop, PieceType::Knight, PieceType::Pawn,
+  };
+  std::cout << "White:\n";
+  for (const auto& type : kPieceTypes) {
+    const auto str = PieceListString(white_, type, language);
+    if (!str.empty()) {
+      std::cout << " - " << str << '\n';
+    }
   }
-  std::cout << '\n';
 
-  std::cout << "Black: ";
-  for (const auto& piece : black_) {
-    std::cout << ToString(piece, language) << ", ";
+  std::cout << "Black:\n";
+  for (const auto& type : kPieceTypes) {
+    const auto str = PieceListString(black_, type, language);
+    if (!str.empty()) {
+      std::cout << " - " << str << '\n';
+    }
   }
-  std::cout << '\n';
+
   if (white_to_move_) {
     std::cout << "White to move\n";
   } else {

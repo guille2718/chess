@@ -1,7 +1,7 @@
 #pragma once
 
+#include <compare>
 #include <filesystem>
-#include <fstream>
 
 #include <absl/status/status.h>
 #include <absl/status/statusor.h>
@@ -13,6 +13,13 @@
 #include <nlohmann/json.hpp>
 
 namespace chess {
+
+enum class Color : bool {
+  White,
+  Black,
+};
+
+auto ToString(Color color) -> std::string;
 
 enum class PieceType : char {
   Rook,
@@ -41,6 +48,29 @@ struct BoardPosition {
   auto IsValid() const -> bool {
     return file >= 1 && file <= 8 && rank >= 1 && rank <= 8;
   }
+
+  static auto FromString(std::string_view str) -> absl::StatusOr<BoardPosition>;
+
+  auto Color() const -> Color {
+    return (file + rank) % 2 == 0 ? Color::White : Color::Black;
+  }
+
+  friend constexpr auto operator<=>(
+      const BoardPosition& a, const BoardPosition& b) -> std::strong_ordering {
+
+    if (a.rank > b.rank) {
+      return std::strong_ordering::less;
+    }
+
+    if (a.rank < b.rank) {
+      return std::strong_ordering::greater;
+    }
+
+    return a.file <=> b.file;
+  }
+
+  friend auto operator==(const BoardPosition&,
+                         const BoardPosition&) -> bool = default;
 };
 
 auto ToString(const BoardPosition& position) -> std::string;
@@ -59,7 +89,8 @@ class ChessBoard {
 
   static auto FromFen(std::string_view fen) -> absl::StatusOr<ChessBoard>;
 
-  auto Print(bool show_info = false) const -> void;
+  auto Print(bool show_info = false,
+             ChessLanguage language = ChessLanguage::kEnglish) const -> void;
 
   auto Fen() const -> std::string;
 
@@ -72,18 +103,13 @@ class ChessBoard {
   void Rotate();
 
  private:
-
   std::vector<BoardPiece> white_;
   std::vector<BoardPiece> black_;
-
   std::string info_;
-
   bool white_to_move_ = true;
-
 };
 
 auto LoadFenFile(const std::filesystem::path& path)
     -> absl::StatusOr<std::vector<ChessBoard>>;
-
 
 }  // namespace chess
