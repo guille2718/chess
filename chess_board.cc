@@ -21,10 +21,11 @@ auto LoadFile(const std::filesystem::path& path) -> std::string {
 
 auto PieceListString(const std::vector<BoardPiece>& pieces,
                      const PieceType type,
+                     const Color color,
                      ChessLanguage language) -> std::string {
   std::vector<std::string> piece_strings;
   for (const auto& piece : pieces) {
-    if (piece.type != type) {
+    if (piece.piece.type != type || piece.piece.color != color) {
       continue;
     }
     piece_strings.push_back(ToString(piece, language));
@@ -59,30 +60,31 @@ auto ToString(Color color) -> std::string {
   return color == Color::White ? "white" : "black";
 }
 
-auto FromFenPiece(char c) -> absl::StatusOr<PieceType> {
+auto FromFenPieceChar(char c) -> absl::StatusOr<Piece> {
+
+  Piece ret;
+  ret.color = absl::ascii_isupper(c) ? Color::White : Color::Black;
+
   c = absl::ascii_tolower(c);
 
   if (c == 'r') {
-    return PieceType::Rook;
-  }
-  if (c == 'n') {
-    return PieceType::Knight;
-  }
-  if (c == 'b') {
-    return PieceType::Bishop;
-  }
-  if (c == 'q') {
-    return PieceType::Queen;
-  }
-  if (c == 'k') {
-    return PieceType::King;
-  }
-  if (c == 'p') {
-    return PieceType::Pawn;
+    ret.type = PieceType::Rook;
+  } else if (c == 'n') {
+    ret.type = PieceType::Knight;
+  } else if (c == 'b') {
+    ret.type = PieceType::Bishop;
+  } else if (c == 'q') {
+    ret.type = PieceType::Queen;
+  } else if (c == 'k') {
+    ret.type = PieceType::King;
+  } else if (c == 'p') {
+    ret.type = PieceType::Pawn;
+  } else {
+    return absl::InvalidArgumentError(
+        absl::StrFormat("Invalid FEN piece type: '%c'", c));
   }
 
-  return absl::InvalidArgumentError(
-      absl::StrFormat("Invalid FEN piece type: '%c'", c));
+  return ret;
 }
 
 auto ToString(PieceType type, ChessLanguage language) -> std::string {
@@ -137,6 +139,23 @@ auto ToString(PieceType type, ChessLanguage language) -> std::string {
       default:
         return "";
     }
+  } else if (language == ChessLanguage::kEnglishFull) {
+    switch (type) {
+      case PieceType::Rook:
+        return "rook";
+      case PieceType::Knight:
+        return "knight";
+      case PieceType::Bishop:
+        return "bishop";
+      case PieceType::Queen:
+        return "queen";
+      case PieceType::King:
+        return "king";
+      case PieceType::Pawn:
+        return "pawn";
+      default:
+        return "";
+    }
   }
 
   return "";
@@ -150,7 +169,39 @@ auto ToString(const BoardPosition& position) -> std::string {
 }
 
 auto ToString(const BoardPiece& piece, ChessLanguage language) -> std::string {
-  return absl::StrCat(ToString(piece.type, language), ToString(piece.position));
+  std::string ret = absl::StrCat(ToString(piece.piece.type, language),
+                                 ToString(piece.position));
+
+  if (piece.piece.color == Color::Black) {
+    ret = absl::AsciiStrToLower(ret);
+  }
+  return ret;
+}
+
+auto BoardPiece::FromString(std::string_view str)
+    -> absl::StatusOr<BoardPiece> {
+  BoardPiece ret;
+
+  if (str.size() != 3) {
+    return absl::InvalidArgumentError(
+        "BoardPiece string must consist of three characters");
+  }
+
+  auto piece_or = FromFenPieceChar(str[0]);
+  if (!piece_or.ok()) {
+    return piece_or.status();
+  }
+
+  ret.piece = *piece_or;
+
+  str.remove_prefix(1);
+  auto position_or = BoardPosition::FromString(str);
+  if (!position_or.ok()) {
+    return position_or.status();
+  }
+  ret.position = *position_or;
+
+  return ret;
 }
 
 // https://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation
@@ -188,23 +239,18 @@ auto ChessBoard::FromFen(std::string_view fen) -> absl::StatusOr<ChessBoard> {
         continue;
       }
 
-      auto piece_type_or = FromFenPiece(current_char);
-      if (!piece_type_or.ok()) {
-        return piece_type_or.status();
+      auto piece_or = FromFenPieceChar(current_char);
+      if (!piece_or.ok()) {
+        return piece_or.status();
       }
-      const auto piece_type = *piece_type_or;
-      const bool white = absl::ascii_isupper(current_char);
+      const auto piece_type = *piece_or;
 
-      BoardPiece piece;
-      piece.type = piece_type;
-      piece.position.file = file;
-      piece.position.rank = rank;
+      BoardPiece board_piece;
+      board_piece.piece = piece_type;
+      board_piece.position.file = file;
+      board_piece.position.rank = rank;
 
-      if (white) {
-        ret.white_.push_back(piece);
-      } else {
-        ret.black_.push_back(piece);
-      }
+      ret.pieces_.push_back(board_piece);
 
       ++file;
     }
@@ -250,7 +296,7 @@ auto ChessBoard::Print(bool show_info, ChessLanguage language) const -> void {
   };
   std::cout << "White:\n";
   for (const auto& type : kPieceTypes) {
-    const auto str = PieceListString(white_, type, language);
+    const auto str = PieceListString(pieces_, type, Color::White, language);
     if (!str.empty()) {
       std::cout << " - " << str << '\n';
     }
@@ -258,7 +304,7 @@ auto ChessBoard::Print(bool show_info, ChessLanguage language) const -> void {
 
   std::cout << "Black:\n";
   for (const auto& type : kPieceTypes) {
-    const auto str = PieceListString(black_, type, language);
+    const auto str = PieceListString(pieces_, type, Color::Black, language);
     if (!str.empty()) {
       std::cout << " - " << str << '\n';
     }
@@ -280,35 +326,17 @@ auto ChessBoard::Print(bool show_info, ChessLanguage language) const -> void {
 }
 
 auto ChessBoard::Fen() const -> std::string {
-  struct FenPiece {
-    PieceType type;
-    bool white;
-  };
-
-  std::vector<std::vector<std::optional<FenPiece>>> full_board;
+  std::vector<std::vector<std::optional<Piece>>> full_board;
   full_board.resize(8);
   for (auto& rank : full_board) {
     rank.resize(8);
   }
 
-  for (const auto& piece : white_) {
-    const int rank = 8 - piece.position.rank;
-    const int file = piece.position.file - 1;
+  for (const auto& board_piece : pieces_) {
+    const int rank = 8 - board_piece.position.rank;
+    const int file = board_piece.position.file - 1;
 
-    FenPiece fp;
-    fp.type = piece.type;
-    fp.white = true;
-    full_board[rank][file] = fp;
-  }
-
-  for (const auto& piece : black_) {
-    const int rank = 8 - piece.position.rank;
-    const int file = piece.position.file - 1;
-
-    FenPiece fp;
-    fp.type = piece.type;
-    fp.white = false;
-    full_board[rank][file] = fp;
+    full_board[rank][file] = board_piece.piece;
   }
 
   std::vector<std::string> rank_strings;
@@ -322,7 +350,7 @@ auto ChessBoard::Fen() const -> std::string {
       if (piece.has_value()) {
         was_empty = false;
         std::string piece_str = ToString(piece->type, ChessLanguage::kEnglish);
-        if (piece->white) {
+        if (piece->color == Color::White) {
           piece_str = absl::AsciiStrToUpper(piece_str);
         } else {
           piece_str = absl::AsciiStrToLower(piece_str);
@@ -355,18 +383,28 @@ auto ChessBoard::Fen() const -> std::string {
 }
 
 void ChessBoard::Rotate() {
-  std::swap(white_, black_);
   white_to_move_ = !white_to_move_;
 
-  for (auto& piece : white_) {
+  for (auto& piece : pieces_) {
     piece.position.rank = 9 - piece.position.rank;
     piece.position.file = 9 - piece.position.file;
+    piece.piece.color =
+        piece.piece.color == Color::Black ? Color::White : Color::Black;
   }
+}
 
-  for (auto& piece : black_) {
-    piece.position.rank = 9 - piece.position.rank;
-    piece.position.file = 9 - piece.position.file;
+auto ChessBoard::AtPosition(const BoardPosition& position) const
+    -> std::optional<Piece> {
+  for (const auto& board_piece : pieces_) {
+    if (board_piece.position == position) {
+      return board_piece.piece;
+    }
   }
+  return std::nullopt;
+}
+
+auto ChessBoard::BoardPieces() const -> std::vector<BoardPiece> {
+  return pieces_;
 }
 
 }  // namespace chess

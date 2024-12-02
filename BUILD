@@ -10,6 +10,20 @@ cc_binary(
     ],
 )
 
+cc_binary(
+    name = "memory",
+    srcs = ["memory.cc"],
+    deps = [
+        ":chess_board",
+        ":term_utils",
+        "@abseil-cpp//absl/random",
+        "@abseil-cpp//absl/status:status",
+        "@abseil-cpp//absl/status:statusor",
+        "@abseil-cpp//absl/strings",
+        "@abseil-cpp//absl/time",
+    ],
+)
+
 cc_library(
     name = "chess_board",
     srcs = ["chess_board.cc"],
@@ -39,5 +53,4 @@ cc_binary(
         "@abseil-cpp//absl/random",
         "@abseil-cpp//absl/strings",
     ],
-
 )

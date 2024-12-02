@@ -30,12 +30,22 @@ enum class PieceType : char {
   Pawn,
 };
 
-auto FromFenPiece(char c) -> absl::StatusOr<PieceType>;
+struct Piece {
+  PieceType type;
+  Color color;
+
+  friend auto operator == (const Piece& a, const Piece& b) -> bool {
+    return a.color == b.color && a.type == b.type;
+  }
+};
+
+auto FromFenPieceChar(char c) -> absl::StatusOr<Piece>;
 
 enum class ChessLanguage : char {
   kSpanish,
   kEnglish,
   kUnicode,
+  kEnglishFull,  // Full words for pieces, i.e.: rook, knight, etc.
 };
 
 auto ToString(PieceType type,
@@ -75,9 +85,17 @@ struct BoardPosition {
 
 auto ToString(const BoardPosition& position) -> std::string;
 
+// Basically a pair of position & piece.
 struct BoardPiece {
   BoardPosition position;
-  PieceType type;
+  Piece piece;
+
+  static auto FromString(std::string_view str) -> absl::StatusOr<BoardPiece>;
+
+  friend auto operator ==(const BoardPiece& a,
+                          const BoardPiece&b) -> bool {
+    return a.position == b.position && a.piece == b.piece;
+  }
 };
 
 auto ToString(const BoardPiece& piece,
@@ -97,14 +115,17 @@ class ChessBoard {
   auto SetInfo(const std::string& info) -> void;
   auto Info() const -> std::string;
 
+  auto AtPosition(const BoardPosition& position) const -> std::optional<Piece>;
+
+  auto BoardPieces() const -> std::vector<BoardPiece>;
+
   // Changes the board by:
   // 1) Rotating 180 degrees the position of all the pieces.
   // 2) Flipping the color of whose turn it's to play.
   void Rotate();
 
  private:
-  std::vector<BoardPiece> white_;
-  std::vector<BoardPiece> black_;
+  std::vector<BoardPiece> pieces_;
   std::string info_;
   bool white_to_move_ = true;
 };
